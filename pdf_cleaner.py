@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PDF Cleaner - Remove annotations and comments from PDF files.
+PDF Cleaner - Remove annotations, comments, and images from PDF files.
 """
 
 import argparse
@@ -16,7 +16,7 @@ except ImportError:
 
 def clean_pdf(input_path: str, output_path: str | None = None) -> str:
     """
-    Remove all annotations and comments from a PDF file.
+    Remove all annotations, comments, and images from a PDF file.
 
     Args:
         input_path: Path to the input PDF file
@@ -35,6 +35,7 @@ def clean_pdf(input_path: str, output_path: str | None = None) -> str:
 
     doc = fitz.open(input_path)
     annotations_removed = 0
+    images_removed = 0
 
     for page_num in range(len(doc)):
         page = doc[page_num]
@@ -44,11 +45,20 @@ def clean_pdf(input_path: str, output_path: str | None = None) -> str:
             annotations_removed += 1
             page.delete_annot(annot)
 
+        images = page.get_images(full=True)
+        for img in images:
+            xref = img[0]
+            doc.xref_set_key(xref, "Length", "0")
+            doc.xref_set_key(xref, "Filter", "null")
+            doc.update_stream(xref, b"")
+            images_removed += 1
+
     page_count = len(doc)
     doc.save(output_path, garbage=4, deflate=True)
     doc.close()
 
     print(f"Removed {annotations_removed} annotation(s) from {page_count} page(s)")
+    print(f"Removed {images_removed} image(s)")
     print(f"Cleaned PDF saved to: {output_path}")
 
     return output_path
@@ -56,7 +66,7 @@ def clean_pdf(input_path: str, output_path: str | None = None) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Remove annotations and comments from PDF files"
+        description="Remove annotations, comments, and images from PDF files"
     )
     parser.add_argument("input", help="Input PDF file path")
     parser.add_argument(
